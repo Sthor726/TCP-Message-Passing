@@ -5,11 +5,10 @@ The server can be initialized by running the following command: 'python server.p
 Clients can be created by running the following command: 'python client.py'
 
 The following commands are available to the client in order to interact with the server:
-    Commands:
-    * 1 - CONNECT
-    * 2 - SUBSCRIBE to a topic
-    * 3 - PUBLISH a message to a topic
-    * 4 - DISCONNECT
+* 1 - CONNECT
+* 2 - SUBSCRIBE to a topic
+* 3 - PUBLISH a message to a topic
+* 4 - DISCONNECT
 
 Responses from the server are returned through the terminal following the prompt 'Server: '
 
