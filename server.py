@@ -55,6 +55,7 @@ def handle_client(connection, addr):
 
             elif action == "DISC":
                 #format: <client_name>, DISC
+                print("DISC_ACK")
                 connection.send("DISC_ACK".encode('utf-8'))
                 break
 
@@ -69,7 +70,7 @@ def handle_client(connection, addr):
     connection.close()
     print(f"Client {addr} ({client_name}) disconnected.")
 
-server_port = 12001
+server_port = 12000
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind(('', server_port))
 server_socket.listen()

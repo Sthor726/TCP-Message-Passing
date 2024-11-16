@@ -1,13 +1,13 @@
 import socket
 import threading
-import time
 
 server_name = 'localhost'
-server_port = 12001
+server_port = 12000
 
 client_socket = None
 running = True
 disconnect_ack_received = False
+subscription_ack_received = False
 
 def receive_messages():
     global running, disconnect_ack_received
@@ -15,14 +15,17 @@ def receive_messages():
         try:
             message = client_socket.recv(1024).decode('utf-8')
             if message:
-                print(f"Server: {message}")
+                print(f"\nServer: {message}")
                 if message == "DISC_ACK":
                     disconnect_ack_received = True
                     break
+                elif message == "SUB_ACK":
+                    global subscription_ack_received
+                    subscription_ack_received = True
             else:
                 break
         except socket.timeout:
-            break
+            continue
         except Exception as e:
             print("Error receiving message from server:", e)
             break
@@ -44,7 +47,7 @@ try:
                 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 client_socket.connect((server_name, server_port))
                 client_socket.settimeout(5)
-                receive_thread = threading.Thread(target=receive_messages)
+                receive_thread = threading.Thread(target=receive_messages, daemon=True)
                 receive_thread.start()
                 message = f"{client_name}, CONN"
                 client_socket.send(message.encode('utf-8'))
@@ -56,7 +59,25 @@ try:
             if client_socket:
                 subject = input("Enter the subject to subscribe to (WEATHER/NEWS): ").upper()
                 message = f"{client_name}, SUB, {subject}"
-                client_socket.send(message.encode('utf-8'))
+                subscription_ack_received = False
+
+                retry_count = 0
+                max_retries = 3
+
+                while not subscription_ack_received and retry_count < max_retries:
+                    client_socket.send(message.encode('utf-8'))
+                    try:
+                        client_socket.settimeout(5)
+                        data = client_socket.recv(1024).decode('utf-8')
+                        if data == "SUB_ACK":
+                            subscription_ack_received = True
+                            print(f"Subscribed to {subject} successfully.")
+                    except socket.timeout:
+                        retry_count += 1
+                        print(f"No acknowledgment received. Retrying subscription ({retry_count}/{max_retries})...")
+                
+                if not subscription_ack_received:
+                    print(f"Failed to subscribe to {subject} after {max_retries} attempts.")
             else:
                 print("You must connect to the server first.")
 
@@ -87,7 +108,7 @@ try:
                             print("Server acknowledged disconnect.")
                     except socket.timeout:
                         retry_count += 1
-                        print("No acknowledgment received. Retrying...")
+                        print("No acknowledgment received. Retrying disconnect...")
                         client_socket.send(message.encode('utf-8'))
 
                 client_socket.close()
