@@ -8,14 +8,20 @@ client_socket = None
 running = True
 disconnect_ack_received = False
 subscription_ack_received = False
+has_connected = False
+
 
 def receive_messages():
-    global running, disconnect_ack_received
+    global running, disconnect_ack_received, client_socket
     while running:
+        if client_socket is None:
+            break
+
         try:
             message = client_socket.recv(1024).decode('utf-8')
             if message:
                 print(f"\nServer: {message}")
+
                 if message == "DISC_ACK":
                     disconnect_ack_received = True
                     break
@@ -24,11 +30,13 @@ def receive_messages():
                     subscription_ack_received = True
             else:
                 break
+
         except socket.timeout:
             continue
-        except Exception as e:
-            print("Error receiving message from server:", e)
+        except (socket.error, Exception) as e:
+            print(f"Error receiving message from server: {e}")
             break
+
 
 client_name = input("Enter your name: ")
 
@@ -39,10 +47,13 @@ try:
         print("2 - SUBSCRIBE to a topic")
         print("3 - PUBLISH a message to a topic")
         print("4 - DISCONNECT")
-        
-        command = input("Choose a command (1-4): ")
+        print("5 - RECONNECT")
+
+        command = input("Choose a command (1-5): ")
 
         if command == "1":  # CONNECT
+            if has_connected:
+                print("Already connected, use RECONNECT")
             if client_socket is None:
                 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 client_socket.connect((server_name, server_port))
@@ -51,6 +62,7 @@ try:
                 receive_thread.start()
                 message = f"{client_name}, CONN"
                 client_socket.send(message.encode('utf-8'))
+                has_connected = True
                 print("Connected to the server.")
             else:
                 print("Already connected to the server.")
@@ -117,8 +129,22 @@ try:
             else:
                 print("You are not connected to the server.")
 
+        elif command == "5":  # RECONNECT
+            if has_connected:
+                if client_socket is None:
+                    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    client_socket.connect((server_name, server_port))
+                    client_socket.settimeout(5)
+                    receive_thread = threading.Thread(target=receive_messages, daemon=True)
+                    receive_thread.start()
+                message = f"{client_name}, RECONNECT"
+                client_socket.send(message.encode('utf-8'))
+                print("Reconnection request sent.")
+            else:
+                print("You must connect to the server first.")
+
         else:
-            print("Invalid command. Please choose a number between 1 and 4.")
+            print("Invalid command. Please choose a number between 1 and 5.")
 
 except KeyboardInterrupt:
     print("\nClient disconnected.")
